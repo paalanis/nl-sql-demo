@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+rq
+redis
+anthropic
+groq
+pymysql
+python-dotenv
+httpx

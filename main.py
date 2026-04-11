@@ -34,11 +34,13 @@ async def webhook(request: Request):
 
         if msg_type == "text":
             text = msg["text"]["body"]
-            q.enqueue("worker.process_query", from_number, "text", text)
+            job = q.enqueue("worker.process_query", from_number, "text", text)
+            print(f"[WEBHOOK] Job enqueued: {job.id}")
 
         elif msg_type == "audio":
             audio_id = msg["audio"]["id"]
-            q.enqueue("worker.process_query", from_number, "audio", audio_id)
+            job = q.enqueue("worker.process_query", from_number, "audio", audio_id)
+            print(f"[WEBHOOK] Job enqueued: {job.id}")
 
         else:
             return {"status": "ignored"}

@@ -1,10 +1,12 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
 import os
-import json
 import redis
-import uuid
 from rq import Queue
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -23,29 +25,32 @@ async def verify(request: Request):
 @app.post("/webhook")
 async def webhook(request: Request):
     data = await request.json()
+    logger.info(f"[WEBHOOK] Payload recibido: {data}")
     try:
         entry = data["entry"][0]["changes"][0]["value"]
+        logger.info(f"[WEBHOOK] Entry: {entry}")
         if "messages" not in entry:
             return {"status": "ignored"}
-        
+
         msg = entry["messages"][0]
         from_number = msg["from"]
         msg_type = msg["type"]
+        logger.info(f"[WEBHOOK] Mensaje de {from_number}, tipo: {msg_type}")
 
         if msg_type == "text":
             text = msg["text"]["body"]
             job = q.enqueue("worker.process_query", from_number, "text", text)
-            print(f"[WEBHOOK] Job enqueued: {job.id}")
+            logger.info(f"[WEBHOOK] Job enqueued: {job.id}")
 
         elif msg_type == "audio":
             audio_id = msg["audio"]["id"]
             job = q.enqueue("worker.process_query", from_number, "audio", audio_id)
-            print(f"[WEBHOOK] Job enqueued: {job.id}")
+            logger.info(f"[WEBHOOK] Job enqueued: {job.id}")
 
         else:
-            return {"status": "ignored"}
+            logger.info(f"[WEBHOOK] Tipo ignorado: {msg_type}")
 
     except Exception as e:
-        print(f"[WEBHOOK ERROR] {e}")
+        logger.error(f"[WEBHOOK ERROR] {e}", exc_info=True)
 
     return {"status": "ok"}

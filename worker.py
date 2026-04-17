@@ -42,7 +42,8 @@ def send_whatsapp_message(to: str, text: str):
         "text": {"body": text}
     }
     with httpx.Client() as client:
-        client.post(url, headers=headers, json=payload)
+        response = client.post(url, headers=headers, json=payload)
+        print(f"[SEND] Status: {response.status_code} | Response: {response.text}")
 
 
 def process_query(from_number: str, msg_type: str, content: str):

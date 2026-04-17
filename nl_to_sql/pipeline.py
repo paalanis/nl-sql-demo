@@ -18,17 +18,22 @@ def generate_sql(query_text: str) -> str:
 
 def format_results(query_text: str, sql: str, results: list) -> str:
     if not results:
-        return "No encontré datos para esa consulta."
+        return "No encontré datos para esa consulta. Verificá el período o los filtros que usaste."
 
     rows_text = "\n".join(str(row) for row in results[:20])
 
     response = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=500,
-        system="Eres un asistente de negocio. Respondé en español, de forma clara y concisa, sin tecnicismos. Usá emojis cuando sea apropiado.",
+        max_tokens=300,
+        system=(
+            "Eres un asistente de negocio conciso. "
+            "Respondé en español, en 2-3 líneas máximo. "
+            "Usá números concretos y emojis cuando sea apropiado. "
+            "No des recomendaciones ni hagas preguntas adicionales."
+        ),
         messages=[{
             "role": "user",
-            "content": f"El usuario preguntó: {query_text}\n\nLos datos obtenidos son:\n{rows_text}\n\nRespondé la pregunta del usuario con estos datos."
+            "content": f"El usuario preguntó: {query_text}\n\nDatos:\n{rows_text}\n\nRespondé la pregunta con estos datos en 2-3 líneas."
         }]
     )
     return response.content[0].text.strip()
@@ -40,7 +45,18 @@ def run_pipeline(query_text: str) -> str:
     print(f"[PIPELINE] SQL generado: {sql}")
 
     if sql == "NO_QUERY":
-        return "No pude entender tu consulta. Intentá preguntar sobre ventas, productos, empleados, stock o turnos."
+        return "No pude entender tu consulta. Podés preguntarme sobre ventas, productos, empleados, stock o turnos. 😊"
+
+    if sql == "META_QUERY":
+        return (
+            "Puedo consultarte información sobre:\n\n"
+            "📊 *Ventas* — totales por fecha, sucursal o producto\n"
+            "🍔 *Productos* — precios, costos, categorías\n"
+            "👥 *Empleados* — roles, turnos y horas trabajadas\n"
+            "📦 *Stock* — cantidades disponibles por sucursal\n"
+            "🏪 *Sucursales* — Centro, Confluencia, Alta Barda y Cipolletti\n\n"
+            "Preguntame lo que necesites en lenguaje natural. 🙌"
+        )
 
     results = execute_query(sql)
     print(f"[PIPELINE] Resultados: {len(results)} filas")

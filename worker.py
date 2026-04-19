@@ -1,4 +1,5 @@
 import os
+import json
 import httpx
 from groq import Groq
 from nl_to_sql.pipeline import run_pipeline
@@ -8,6 +9,32 @@ WHATSAPP_PHONE_NUMBER_ID = os.environ["WHATSAPP_PHONE_NUMBER_ID"]
 GROQ_API_KEY = os.environ["GROQ_API_KEY"]
 
 groq_client = Groq(api_key=GROQ_API_KEY)
+
+HISTORY_TTL = 1800  # 30 minutos
+MAX_HISTORY_TURNS = 5  # últimos 5 intercambios
+
+
+def get_history(r, user_id: str) -> list:
+    key = f"history:{user_id}"
+    data = r.get(key)
+    if data:
+        return json.loads(data)
+    return []
+
+
+def save_history(r, user_id: str, history: list):
+    key = f"history:{user_id}"
+    r.setex(key, HISTORY_TTL, json.dumps(history))
+
+
+def update_history(r, user_id: str, query_text: str, response_text: str):
+    history = get_history(r, user_id)
+    history.append({"role": "user", "content": query_text})
+    history.append({"role": "assistant", "content": response_text})
+    # Mantener solo los últimos MAX_HISTORY_TURNS intercambios
+    if len(history) > MAX_HISTORY_TURNS * 2:
+        history = history[-(MAX_HISTORY_TURNS * 2):]
+    save_history(r, user_id, history)
 
 
 def download_audio(audio_id: str) -> bytes:
@@ -47,6 +74,9 @@ def send_whatsapp_message(to: str, text: str):
 
 
 def process_query(from_number: str, msg_type: str, content: str):
+    import redis
+    r = redis.from_url(os.environ["REDIS_URL"])
+
     try:
         if msg_type == "audio":
             print(f"[WORKER] Descargando audio {content}")
@@ -58,7 +88,11 @@ def process_query(from_number: str, msg_type: str, content: str):
             query_text = content
 
         print(f"[WORKER] Procesando query: {query_text}")
-        response = run_pipeline(query_text)
+        history = get_history(r, from_number)
+        print(f"[WORKER] Historial: {len(history)} mensajes")
+
+        response = run_pipeline(query_text, history)
+        update_history(r, from_number, query_text, response)
         send_whatsapp_message(from_number, response)
 
     except Exception as e:

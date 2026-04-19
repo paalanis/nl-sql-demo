@@ -6,12 +6,13 @@ from nl_to_sql.db import execute_query
 client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
 
-def generate_sql(query_text: str) -> str:
+def generate_sql(query_text: str, history: list) -> str:
+    messages = history + [{"role": "user", "content": query_text}]
     response = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=500,
         system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": query_text}]
+        messages=messages
     )
     return response.content[0].text.strip()
 
@@ -39,9 +40,9 @@ def format_results(query_text: str, sql: str, results: list) -> str:
     return response.content[0].text.strip()
 
 
-def run_pipeline(query_text: str) -> str:
+def run_pipeline(query_text: str, history: list = []) -> str:
     print(f"[PIPELINE] Generando SQL para: {query_text}")
-    sql = generate_sql(query_text)
+    sql = generate_sql(query_text, history)
     print(f"[PIPELINE] SQL generado: {sql}")
 
     if sql == "NO_QUERY":

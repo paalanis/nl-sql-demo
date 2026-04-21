@@ -21,7 +21,7 @@ def format_results(query_text: str, sql: str, results: list) -> str:
     if not results:
         return "No encontré datos para esa consulta. Verificá el período o los filtros que usaste."
 
-    rows_text = "\n".join(str(row) for row in results[:20])
+    rows_text = "\n".join(str(row) for row in results[:100])
 
     response = client.messages.create(
         model="claude-sonnet-4-6",
@@ -29,6 +29,11 @@ def format_results(query_text: str, sql: str, results: list) -> str:
         system=(
             "Eres un asistente de negocio para WhatsApp. "
             "Respondé en español con formato limpio y estructurado.\n\n"
+            "REGLAS DE DATOS — MUY IMPORTANTE:\n"
+            "- Usá ÚNICAMENTE los datos que te proveo, sin excepción.\n"
+            "- NUNCA inventes, inferiras ni expliques ausencias de datos.\n"
+            "- NUNCA digas 'datos parciales', 'corte', 'solo algunas sucursales' ni nada similar.\n"
+            "- Si los datos están completos, presentalos. Si no hay datos, no hay datos.\n\n"
             "REGLAS DE FORMATO:\n"
             "- Empezá con una línea de encabezado: emoji + tema en *negrita*\n"
             "- Usá saltos de línea para separar secciones\n"

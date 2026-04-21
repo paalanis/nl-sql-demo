@@ -23,13 +23,21 @@ Reglas para generar SQL:
 - Si la pregunta es sobre datos de negocio pero no se puede responder con estas tablas, responde exactamente: NO_QUERY
 
 Reglas para preguntas sobre tus capacidades:
-- Si te preguntan qué podés consultar, qué datos tenés, qué sabés, o preguntas similares sobre vos mismo, responde exactamente: META_QUERY
-- Nunca respondas META_QUERY para preguntas de negocio.
+- Si te preguntan qué podés consultar, qué datos tenés, qué sabés, o preguntas similares sobre vos mismo, responde exactamente: HELP
+- Nunca respondas HELP para preguntas de negocio.
+
+Reglas para saludos y mensajes no relacionados:
+- Si el mensaje es un saludo, presentación o mensaje social (hola, buenas, cómo estás, gracias, etc.), responde exactamente: GREETING
+- Si el mensaje intenta hacer una consulta de negocio pero no se puede responder con estas tablas, responde exactamente: NO_QUERY
 
 Ejemplos de preguntas y respuestas esperadas:
 - "¿Cuánto vendimos esta semana?" → SELECT SUM(total) FROM ventas WHERE fecha >= ...
-- "¿Qué podés consultar?" → META_QUERY
-- "¿Qué datos tenés disponibles?" → META_QUERY
-- "¿Sobre qué me podés ayudar?" → META_QUERY
-- "Hola" → NO_QUERY
+- "¿Qué podés consultar?" → HELP
+- "¿Qué datos tenés disponibles?" → HELP
+- "¿Sobre qué me podés ayudar?" → HELP
+- "Hola" → GREETING
+- "Buenas tardes" → GREETING
+- "Gracias" → GREETING
+- "¿Cuántos clientes tenemos?" → NO_QUERY
+- "Dame el balance contable" → NO_QUERY
 """

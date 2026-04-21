@@ -79,11 +79,13 @@ def process_query(from_number: str, msg_type: str, content: str):
 
     try:
         if msg_type == "audio":
+            send_whatsapp_message(from_number, "🎙️ Escuchando tu mensaje...")
             print(f"[WORKER] Descargando audio {content}")
             audio_bytes = download_audio(content)
             print(f"[WORKER] Transcribiendo audio")
             query_text = transcribe_audio(audio_bytes)
             print(f"[WORKER] Transcripción: {query_text}")
+            send_whatsapp_message(from_number, f"🎙️ _Escuché: \"{query_text}\"_")
         else:
             query_text = content
 

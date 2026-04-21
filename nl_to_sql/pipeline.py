@@ -25,16 +25,30 @@ def format_results(query_text: str, sql: str, results: list) -> str:
 
     response = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=300,
+        max_tokens=400,
         system=(
-            "Eres un asistente de negocio conciso. "
-            "Respondé en español, en 2-3 líneas máximo. "
-            "Usá números concretos y emojis cuando sea apropiado. "
-            "No des recomendaciones ni hagas preguntas adicionales."
+            "Eres un asistente de negocio para WhatsApp. "
+            "Respondé en español con formato limpio y estructurado.\n\n"
+            "REGLAS DE FORMATO:\n"
+            "- Empezá con una línea de encabezado: emoji + tema en *negrita*\n"
+            "- Usá saltos de línea para separar secciones\n"
+            "- Usá viñetas con • para listar ítems\n"
+            "- Usá *texto* para resaltar valores importantes (un solo asterisco)\n"
+            "- NUNCA uses ** doble asterisco\n"
+            "- NUNCA uses markdown como #, ##, -, ---\n"
+            "- Máximo 8 líneas en total\n"
+            "- Solo números concretos, sin frases de relleno\n"
+            "- No hagas preguntas ni recomendaciones\n\n"
+            "EJEMPLO de respuesta bien formateada:\n"
+            "👥 *Empleados por rol*\n\n"
+            "• Cocina: *8*\n"
+            "• Cajeros: *4*\n"
+            "• Gerentes: *4*\n\n"
+            "*Total: 16 empleados* en 4 sucursales"
         ),
         messages=[{
             "role": "user",
-            "content": f"El usuario preguntó: {query_text}\n\nDatos:\n{rows_text}\n\nRespondé la pregunta con estos datos en 2-3 líneas."
+            "content": f"El usuario preguntó: {query_text}\n\nDatos:\n{rows_text}\n\nRespondé con el formato indicado."
         }]
     )
     return response.content[0].text.strip()
@@ -45,18 +59,29 @@ def run_pipeline(query_text: str, history: list = []) -> str:
     sql = generate_sql(query_text, history)
     print(f"[PIPELINE] SQL generado: {sql}")
 
-    if sql == "NO_QUERY":
-        return "No pude entender tu consulta. Podés preguntarme sobre ventas, productos, empleados, stock o turnos. 😊"
-
-    if sql == "META_QUERY":
+    if sql == "GREETING":
         return (
-            "Puedo consultarte información sobre:\n\n"
+            "¡Hola! 👋 Soy el asistente de *BurgerDemo*.\n\n"
+            "Puedo consultarte info sobre ventas, productos, stock, empleados y sucursales.\n\n"
+            "¿Qué querés saber?"
+        )
+
+    if sql == "NO_QUERY":
+        return (
+            "No encontré datos para eso en el sistema. 🤔\n\n"
+            "Puedo ayudarte con ventas, productos, stock, empleados y sucursales.\n\n"
+            "¿Querés intentar con otra consulta?"
+        )
+
+    if sql == "HELP":
+        return (
+            "📋 *Esto es lo que puedo consultar:*\n\n"
             "📊 *Ventas* — totales por fecha, sucursal o producto\n"
-            "🍔 *Productos* — precios, costos, categorías\n"
+            "🍔 *Productos* — precios, costos y categorías\n"
             "👥 *Empleados* — roles, turnos y horas trabajadas\n"
-            "📦 *Stock* — cantidades disponibles por sucursal\n"
+            "📦 *Stock* — disponibilidad por sucursal\n"
             "🏪 *Sucursales* — Centro, Confluencia, Alta Barda y Cipolletti\n\n"
-            "Preguntame lo que necesites en lenguaje natural. 🙌"
+            "Escribime en lenguaje natural. 💬"
         )
 
     results = execute_query(sql)

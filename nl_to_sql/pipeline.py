@@ -1,6 +1,6 @@
 import os
 from anthropic import Anthropic
-from nl_to_sql.prompt import SYSTEM_PROMPT
+from nl_to_sql.prompt import SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT
 from nl_to_sql.db import execute_query
 
 client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
@@ -12,6 +12,17 @@ def generate_sql(query_text: str, history: list) -> str:
         model="claude-sonnet-4-6",
         max_tokens=500,
         system=SYSTEM_PROMPT,
+        messages=messages
+    )
+    return response.content[0].text.strip()
+
+
+def generate_chat_response(query_text: str, history: list) -> str:
+    messages = history + [{"role": "user", "content": query_text}]
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=200,
+        system=CHAT_SYSTEM_PROMPT,
         messages=messages
     )
     return response.content[0].text.strip()
@@ -71,13 +82,6 @@ def run_pipeline(query_text: str, history: list = []) -> str:
             "¿Qué querés saber?"
         )
 
-    if sql == "NO_QUERY":
-        return (
-            "No encontré datos para eso en el sistema. 🤔\n\n"
-            "Puedo ayudarte con ventas, productos, stock, empleados y sucursales.\n\n"
-            "¿Querés intentar con otra consulta?"
-        )
-
     if sql == "HELP":
         return (
             "📋 *Esto es lo que puedo consultar:*\n\n"
@@ -88,6 +92,17 @@ def run_pipeline(query_text: str, history: list = []) -> str:
             "🏪 *Sucursales* — Centro, Confluencia, Alta Barda y Cipolletti\n\n"
             "Escribime en lenguaje natural. 💬"
         )
+
+    if sql == "NO_QUERY":
+        return (
+            "No encontré datos para eso en el sistema. 🤔\n\n"
+            "Puedo ayudarte con ventas, productos, stock, empleados y sucursales.\n\n"
+            "¿Querés intentar con otra consulta?"
+        )
+
+    if sql == "CHAT":
+        print(f"[PIPELINE] Modo conversacional")
+        return generate_chat_response(query_text, history)
 
     results = execute_query(sql)
     print(f"[PIPELINE] Resultados: {len(results)} filas")

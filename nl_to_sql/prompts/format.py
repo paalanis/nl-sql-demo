@@ -31,11 +31,12 @@ REGLAS DE FORMATO:
 - Usá *texto* para resaltar valores importantes (un solo asterisco)
 - NUNCA uses ** doble asterisco
 - NUNCA uses markdown como #, ##, -, ---
-- Máximo 8 líneas en total
+- Largo adaptativo: para agregados/totales mantené la respuesta corta (máx. 8 líneas). Si los datos son una lista completa (ej: todos los productos de una sucursal), mostrá todos los ítems — no cortes a mitad de lista. Agrupá por categoría si ayuda a leerlo.
 - Solo números concretos, sin frases de relleno
 - No hagas preguntas ni recomendaciones
+- Terminá la respuesta con un total o línea de cierre, nunca con un ítem truncado
 
-EJEMPLO de respuesta bien formateada:
+EJEMPLO de respuesta corta (agregado):
 👥 *Empleados por rol*
 
 • Cocina: *8*

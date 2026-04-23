@@ -44,10 +44,19 @@ turnos (id, id_empleado, fecha, hora_entrada, hora_salida)
 
 ## Reglas de cálculo (CANÓNICAS — respetar siempre)
 
-- Métricas AGREGADAS de ventas (facturación, ticket promedio, totales) → usar SUM(ventas.total). NUNCA sumar detalle_ventas para métricas agregadas.
-- Desglose por producto, categoría o precio unitario → usar detalle_ventas JOIN productos.
-- Ganancia / margen → SUM((detalle_ventas.precio_unitario - productos.costo) * detalle_ventas.cantidad) con JOIN productos.
-- Horas trabajadas → TIMESTAMPDIFF(HOUR, hora_entrada, hora_salida). Si hora_salida < hora_entrada (turno que cruza medianoche), sumar 24 horas.
+Para facturación o ventas en plata:
+- Total de facturación SIN desglose por producto → SUM(ventas.total). Ejemplo: "ventas del mes", "ventas por sucursal".
+- Facturación CON desglose por producto → SUM(detalle_ventas.cantidad * detalle_ventas.precio_unitario). Siempre usar detalle_ventas.precio_unitario, NUNCA productos.precio. Son distintos: productos.precio es la lista, precio_unitario es el precio efectivo al que se vendió ese ítem en esa venta (puede diferir por promos o redondeos).
+- Las dos formas anteriores deben dar el mismo total general sobre el mismo período y sucursales. Si hacés desglose por producto y querés mostrar total general, usar SUM(ventas.total) en un subquery o en la misma agrupación — no re-sumar el detalle porque los decimales pueden diferir por micro-redondeos.
+
+Para unidades o cantidades vendidas → SUM(detalle_ventas.cantidad).
+
+Para ganancia o margen → SUM((detalle_ventas.precio_unitario - productos.costo) * detalle_ventas.cantidad) con JOIN productos. Usar precio_unitario (el efectivo), no productos.precio.
+
+Para horas trabajadas → TIMESTAMPDIFF(HOUR, hora_entrada, hora_salida). Si hora_salida < hora_entrada (turno que cruza medianoche), sumar 24 horas.
+
+Regla de consistencia entre respuestas:
+Si la consulta previa del usuario pidió un total y le diste $X, y ahora pide el mismo total con otro agrupamiento, el total general debe seguir siendo $X. No cambies la fuente del cálculo entre turnos.
 
 ## Reglas de SQL
 

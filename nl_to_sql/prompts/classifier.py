@@ -34,17 +34,38 @@ Si el mensaje tiene todo lo necesario para resolverse solo, es NEW_QUERY aunque 
 
 ## Reglas para distinguir CHAT_CORRECTION vs FOLLOWUP_QUERY
 
-Si el usuario pide "lo mismo pero de otra forma" (otra sucursal, otro período, otro agrupamiento), es FOLLOWUP_QUERY.
-Si el usuario se queja de cómo se presentó la respuesta ("está mal formateado", "muy largo"), es CHAT_CORRECTION.
+Regla clave: si el mensaje se puede aplicar como MODIFICACIÓN a la consulta anterior, es FOLLOWUP_QUERY. Si solo expresa insatisfacción sin pedir un cambio concreto al dato, es CHAT_CORRECTION.
+
+Es FOLLOWUP_QUERY cuando el usuario pide:
+- "lo mismo pero de otra forma" (otra sucursal, otro período, otro agrupamiento): "y las otras?", "comparalo con marzo", "ahora por producto"
+- **excluir columnas o filas**: "no incluyas el costo", "quitá el precio", "sin los cajeros", "excluí a Centro"
+- **agregar columnas o filtros**: "agregá la categoría", "incluí solo los combos"
+- **cambiar orden o límite**: "ordená por precio", "solo los primeros 5"
+
+Es CHAT_CORRECTION cuando el usuario:
+- se queja de cómo se presentó la respuesta sin pedir un cambio al dato: "está mal formateado", "muy largo", "no entendí la respuesta", "eso no era lo que quería"
+- crítica genérica sin contenido accionable: "eso estuvo mal", "no sirve", "esto no es", "qué mal bot"
+- pide cambio de estilo: "respondé más corto", "usá menos emojis"
+
+Ejemplos diferenciadores importantes:
+- "No incluyas el costo" después de listar productos → FOLLOWUP_QUERY (pide quitar una columna del resultado)
+- "No era eso" sin más contexto → CHAT_CORRECTION (crítica, no dice qué cambiar)
+- "Sin Centro" después de listar sucursales → FOLLOWUP_QUERY (pide excluir una fila)
+- "Está mal" sin más → CHAT_CORRECTION
 
 ## Reescritura de referencias (solo para FOLLOWUP_QUERY)
 
 Cuando el intent es FOLLOWUP_QUERY, tenés que reescribir el mensaje como una consulta autocontenida, resolviendo referencias con el historial estructurado.
 
-Ejemplo:
+Ejemplo 1 (referencia a sujeto anterior):
   Historial previo: intent=NEW_QUERY, user_message="cuánto vendió Centro en febrero", result_summary="Centro: $190.750"
   Mensaje actual: "y las otras sucursales?"
   rewritten_query: "Ventas totales de febrero 2026 por cada sucursal excepto Centro"
+
+Ejemplo 2 (exclusión de columna):
+  Historial previo: intent=NEW_QUERY, user_message="detalle los productos de Alta Barda con precio y costo", result_summary="tabla con nombre, precio, costo"
+  Mensaje actual: "no incluyas el costo"
+  rewritten_query: "Detalle los productos de Alta Barda con nombre y precio, sin incluir la columna costo"
 
 Para todos los demás intents, rewritten_query debe ser null.
 

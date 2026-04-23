@@ -34,13 +34,15 @@ SQL_MODEL = os.environ.get("SQL_MODEL", "claude-sonnet-4-6")
 FORMAT_MODEL = os.environ.get("FORMAT_MODEL", "claude-sonnet-4-6")
 CONFIDENCE_THRESHOLD = float(os.environ.get("CLASSIFIER_CONFIDENCE_THRESHOLD", "0.6"))
 
-# Max tokens por llamada. Los defaults son los que ya usábamos.
+# Max tokens por llamada. Los defaults cubren casos con listas largas
+# (ej: desglose de todos los productos vendidos en un mes por sucursal).
 #   CLASSIFIER: el JSON del clasificador es chico (~150 tokens). 300 da margen.
 #   SQL: una query SQL larga con JOINs y CTEs puede pasar los 400. 500 es seguro.
-#   FORMAT: respuesta WhatsApp, máximo 8 líneas. 400 alcanza de sobra.
+#   FORMAT: listas largas (20+ productos con precios) pueden pasar los 400.
+#           800 cubre el 99% de casos sin gastar de más en respuestas cortas.
 CLASSIFIER_MAX_TOKENS = int(os.environ.get("CLASSIFIER_MAX_TOKENS", "300"))
 SQL_MAX_TOKENS = int(os.environ.get("SQL_MAX_TOKENS", "500"))
-FORMAT_MAX_TOKENS = int(os.environ.get("FORMAT_MAX_TOKENS", "400"))
+FORMAT_MAX_TOKENS = int(os.environ.get("FORMAT_MAX_TOKENS", "800"))
 
 # Intents que NO necesitan SQL — respondemos con texto canned.
 CHAT_INTENTS = {"GREETING", "HELP", "OUT_OF_SCOPE", "CHAT_ACK", "CHAT_CORRECTION"}

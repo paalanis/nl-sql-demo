@@ -5,6 +5,13 @@ import os
 import httpx
 from groq import Groq
 
+# Configurar logging ANTES de importar pipeline. Sin esto, los logger.info
+# del pipeline no salen a stdout cuando el worker corre vía `rq worker`.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+
 from nl_to_sql.pipeline import run_pipeline
 
 logger = logging.getLogger(__name__)

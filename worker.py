@@ -1,8 +1,13 @@
-import os
 import json
+import logging
+import os
+
 import httpx
 from groq import Groq
+
 from nl_to_sql.pipeline import run_pipeline
+
+logger = logging.getLogger(__name__)
 
 WHATSAPP_TOKEN = os.environ["WHATSAPP_TOKEN"]
 WHATSAPP_PHONE_NUMBER_ID = os.environ["WHATSAPP_PHONE_NUMBER_ID"]
@@ -10,30 +15,43 @@ GROQ_API_KEY = os.environ["GROQ_API_KEY"]
 
 groq_client = Groq(api_key=GROQ_API_KEY)
 
-HISTORY_TTL = 1800  # 30 minutos
-MAX_HISTORY_TURNS = 5  # últimos 5 intercambios
+HISTORY_TTL = int(os.environ.get("HISTORY_TTL", "1800"))  # segundos; default 30 min
+MAX_HISTORY_TURNS = int(os.environ.get("MAX_HISTORY_TURNS", "5"))  # últimos N intercambios
 
 
 def get_history(r, user_id: str) -> list:
+    """
+    Historial estructurado: lista de turnos
+      [{ user_message, intent, sql, row_count, result_summary }, ...]
+
+    Formato nuevo desde el paso 2. La limpieza de Redis se asume ya hecha,
+    así que no hacemos parseo defensivo del formato viejo.
+    """
     key = f"history:{user_id}"
     data = r.get(key)
-    if data:
+    if not data:
+        return []
+    try:
         return json.loads(data)
-    return []
+    except json.JSONDecodeError:
+        logger.warning("[HISTORY] JSON corrupto en %s — descartando", key)
+        return []
 
 
 def save_history(r, user_id: str, history: list):
     key = f"history:{user_id}"
-    r.setex(key, HISTORY_TTL, json.dumps(history))
+    r.setex(key, HISTORY_TTL, json.dumps(history, ensure_ascii=False))
 
 
-def update_history(r, user_id: str, query_text: str, response_text: str):
+def update_history(r, user_id: str, history_entry: dict):
+    """
+    Agrega un turno estructurado al historial y mantiene solo los últimos
+    MAX_HISTORY_TURNS. Ya no guardamos el texto formateado con emojis.
+    """
     history = get_history(r, user_id)
-    history.append({"role": "user", "content": query_text})
-    history.append({"role": "assistant", "content": response_text})
-    # Mantener solo los últimos MAX_HISTORY_TURNS intercambios
-    if len(history) > MAX_HISTORY_TURNS * 2:
-        history = history[-(MAX_HISTORY_TURNS * 2):]
+    history.append(history_entry)
+    if len(history) > MAX_HISTORY_TURNS:
+        history = history[-MAX_HISTORY_TURNS:]
     save_history(r, user_id, history)
 
 
@@ -51,7 +69,7 @@ def transcribe_audio(audio_bytes: bytes) -> str:
     transcription = groq_client.audio.transcriptions.create(
         file=("audio.ogg", audio_bytes, "audio/ogg"),
         model="whisper-large-v3",
-        language="es"
+        language="es",
     )
     return transcription.text
 
@@ -60,17 +78,17 @@ def send_whatsapp_message(to: str, text: str):
     url = f"https://graph.facebook.com/v20.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
     headers = {
         "Authorization": f"Bearer {WHATSAPP_TOKEN}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
     }
     payload = {
         "messaging_product": "whatsapp",
         "to": to,
         "type": "text",
-        "text": {"body": text}
+        "text": {"body": text},
     }
     with httpx.Client() as client:
         response = client.post(url, headers=headers, json=payload)
-        print(f"[SEND] Status: {response.status_code} | Response: {response.text}")
+        logger.info("[SEND] Status: %s | Response: %s", response.status_code, response.text)
 
 
 def process_query(from_number: str, msg_type: str, content: str):
@@ -80,23 +98,26 @@ def process_query(from_number: str, msg_type: str, content: str):
     try:
         if msg_type == "audio":
             send_whatsapp_message(from_number, "🎙️ Escuchando tu mensaje...")
-            print(f"[WORKER] Descargando audio {content}")
+            logger.info("[WORKER] Descargando audio %s", content)
             audio_bytes = download_audio(content)
-            print(f"[WORKER] Transcribiendo audio")
+            logger.info("[WORKER] Transcribiendo audio")
             query_text = transcribe_audio(audio_bytes)
-            print(f"[WORKER] Transcripción: {query_text}")
-            send_whatsapp_message(from_number, f"🎙️ _Escuché: \"{query_text}\"_")
+            logger.info("[WORKER] Transcripción: %s", query_text)
+            send_whatsapp_message(from_number, f'🎙️ _Escuché: "{query_text}"_')
         else:
             query_text = content
 
-        print(f"[WORKER] Procesando query: {query_text}")
+        logger.info("[WORKER] Procesando query: %s", query_text)
         history = get_history(r, from_number)
-        print(f"[WORKER] Historial: {len(history)} mensajes")
+        logger.info("[WORKER] Historial: %d turnos", len(history))
 
-        response = run_pipeline(query_text, history)
-        update_history(r, from_number, query_text, response)
-        send_whatsapp_message(from_number, response)
+        response_text, history_entry = run_pipeline(query_text, history)
+        update_history(r, from_number, history_entry)
+        send_whatsapp_message(from_number, response_text)
 
-    except Exception as e:
-        print(f"[WORKER ERROR] {e}")
-        send_whatsapp_message(from_number, "Ocurrió un error procesando tu consulta. Intentá de nuevo.")
+    except Exception as exc:
+        logger.exception("[WORKER ERROR] %s", exc)
+        send_whatsapp_message(
+            from_number,
+            "Ocurrió un error procesando tu consulta. Intentá de nuevo.",
+        )

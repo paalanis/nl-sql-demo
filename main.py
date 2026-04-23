@@ -54,3 +54,16 @@ async def webhook(request: Request):
         logger.error(f"[WEBHOOK ERROR] {e}", exc_info=True)
 
     return {"status": "ok"}
+
+@app.get("/debug/db-ping")
+async def db_ping():
+    import socket, os, time
+    start = time.time()
+    try:
+        socket.create_connection(
+            (os.environ["DB_HOST"], int(os.environ.get("DB_PORT", 3306))),
+            timeout=5,
+        )
+        return {"ok": True, "elapsed": round(time.time() - start, 2)}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "elapsed": round(time.time() - start, 2)}

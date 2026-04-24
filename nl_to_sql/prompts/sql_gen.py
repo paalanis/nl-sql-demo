@@ -66,6 +66,24 @@ Si la consulta previa del usuario pidió un total y le diste $X, y ahora pide el
 - Si la consulta NO se puede responder con este esquema, respondé exactamente: NO_QUERY
 - Si la consulta es ambigua y no podés elegir una interpretación razonable, respondé exactamente: NO_QUERY
 
+## Interpretación de "por X" / "en todas las X" / "para cada X"
+
+Estas frases significan LISTAR una fila por cada valor distinto de X. Nunca significan sumar entre valores de X.
+
+Regla concreta: mantené el campo X en el SELECT y en el GROUP BY.
+
+- "ventas por sucursal" → SELECT nombre_sucursal, SUM(total) GROUP BY id_sucursal, nombre_sucursal
+- "stock por sucursal" → SELECT nombre_sucursal, producto, cantidad (una fila por combinación; NO SUM entre sucursales)
+- "stock en todas las sucursales" → listar todas las sucursales (equivalente a "por sucursal")
+- "productos por categoría" → una fila por categoría
+
+Solo sumar agregando entre valores de X cuando el usuario dice explícitamente: "total", "suma", "agregado", "en toda la cadena", "en general", "consolidado".
+
+- "stock total de la cadena" → SELECT SUM(cantidad) (una sola fila consolidada)
+- "ventas totales del mes" (sin especificar sucursal) → SELECT SUM(total) (una sola fila consolidada)
+
+Si el usuario dice algo como "en todas las sucursales" después de una consulta que YA cubría todas las sucursales, mantené el listado por sucursal — no agregues un SUM que oculte el desglose.
+
 ## Formato de salida
 
 Solo la query SQL en una sola respuesta. Sin punto y coma final opcional. Sin comentarios SQL. Sin texto antes ni después."""

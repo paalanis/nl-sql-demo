@@ -57,15 +57,41 @@ Ejemplos diferenciadores importantes:
 
 Cuando el intent es FOLLOWUP_QUERY, tenés que reescribir el mensaje como una consulta autocontenida, resolviendo referencias con el historial estructurado.
 
+**Regla crítica para reescribir: la fuente de verdad sobre QUÉ hizo la consulta anterior es el campo `sql` del historial, NO el `result_summary`.**
+
+El `result_summary` describe el resultado, que puede confundir: si una query sin filtro por sucursal solo devolvió datos de una sucursal (porque las otras no tenían datos que cumplan el criterio), el resumen va a mencionar esa sucursal, pero eso NO significa que la consulta estaba filtrada por ella. Antes de reescribir, leé el SQL previo y razoná sobre sus WHERE y GROUP BY reales:
+
+- Si el SQL previo NO tenía filtro por sucursal → no agregues uno inventado para "quitarlo"
+- Si el SQL previo NO tenía GROUP BY por X → no asumas que estaba agrupado por X
+- Si el SQL previo ya traía todas las sucursales → un followup tipo "en todas las sucursales" es redundante (probablemente el usuario quiere otro cambio; si no podés deducir cuál, bajá confidence)
+
 Ejemplo 1 (referencia a sujeto anterior):
-  Historial previo: intent=NEW_QUERY, user_message="cuánto vendió Centro en febrero", result_summary="Centro: $190.750"
+  Historial previo:
+    user_message="cuánto vendió Centro en febrero"
+    sql="SELECT SUM(total) FROM ventas v JOIN sucursales s ON s.id=v.id_sucursal WHERE s.nombre='Centro' AND v.fecha>='2026-02-01' AND v.fecha<'2026-03-01'"
+    result_summary="Centro: $190.750"
   Mensaje actual: "y las otras sucursales?"
+  Análisis del SQL previo: SÍ tenía filtro WHERE s.nombre='Centro'. La referencia "las otras" tiene sentido.
   rewritten_query: "Ventas totales de febrero 2026 por cada sucursal excepto Centro"
 
 Ejemplo 2 (exclusión de columna):
-  Historial previo: intent=NEW_QUERY, user_message="detalle los productos de Alta Barda con precio y costo", result_summary="tabla con nombre, precio, costo"
+  Historial previo:
+    user_message="detalle los productos de Alta Barda con precio y costo"
+    sql="SELECT nombre, precio, costo FROM productos p JOIN stock s ON s.id_producto=p.id JOIN sucursales su ON su.id=s.id_sucursal WHERE su.nombre='Alta Barda'"
+    result_summary="tabla con nombre, precio, costo"
   Mensaje actual: "no incluyas el costo"
+  Análisis del SQL previo: el SELECT tenía 3 columnas; el usuario pide quitar una.
   rewritten_query: "Detalle los productos de Alta Barda con nombre y precio, sin incluir la columna costo"
+
+Ejemplo 3 (trampa del result_summary):
+  Historial previo:
+    user_message="lista de stock con menos de 10 unidades"
+    sql="SELECT su.nombre, p.nombre, s.cantidad FROM stock s JOIN productos p ON s.id_producto=p.id JOIN sucursales su ON su.id=s.id_sucursal WHERE s.cantidad<10 ORDER BY s.cantidad ASC"
+    result_summary="1 fila: Alta Barda / Queso Extra / 7 unidades"
+  Mensaje actual: "extendé la consulta a todas las sucursales"
+  Análisis del SQL previo: NO tenía filtro por sucursal — ya incluía todas. El resultado solo muestra Alta Barda porque es la única sucursal con algún producto bajo el umbral, no porque estuviera filtrada.
+  Reescritura correcta: reconocer que la query ya cubría todas las sucursales. El usuario probablemente pide ver el stock completo sin el filtro de cantidad, o aumentar el umbral.
+  rewritten_query: "Lista de stock de todos los productos en todas las sucursales, ordenado por cantidad ascendente, mostrando los más bajos primero"
 
 Para todos los demás intents, rewritten_query debe ser null.
 
